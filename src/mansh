@@ -1,0 +1,221 @@
+#!/usr/bin/env python3
+import readline # needed to use arrow keys to trace back history on prompts, even though it is not used explicitly
+import argparse
+import readchar
+import subprocess
+import re
+import os
+import getpass
+import socket
+from pathlib import Path
+from utils_mansh import setup_data_on_model, query_on_corpus, writeback_changes, get_models, add_model, input_model_string, display_cached_models, get_available_commands_from_data, change_params
+from utils_generic import bcolors, runcdcmd, prntc, getcmd, rlinput
+from utils_generic import moveup
+
+
+readline.parse_and_bind("tab: complete") # allow tab completions for path changes, BUT allows cd to one level up or down only 
+
+def main():
+    # params (editable)
+    DELIMITER = "\n\n"
+    delimiters = ["\n\n", "\n"]
+    starting_model = 'paraphrase-MiniLM-L12-v2'
+    INFO_LEN = 4
+    MOVEUP_OFFSET_PER_BLOCK = 3
+
+    # arg based params (non editable)
+    PRETTY_COLORS = False
+    SKIP_NUMERALS = True    
+    VANISH = False
+    
+    modelsdir = os.path.realpath(os.path.dirname(__file__))
+    models = get_models(modelsdir)    
+
+    # Parse args
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--pretty_colors', help="Turns off and on pretty colors for run shell and man shell prompts", nargs='?', const="on", type=str)
+    parser.add_argument(
+        "--add_model", help="Steps to add a new model as a cached file", action="store_true")
+    parser.add_argument(
+        "--show_models", help="Lists all cached models", action="store_true")
+    parser.add_argument(
+        "--include_numerals", help="Keep numerals in query", action="store_true")
+    parser.add_argument(
+        "--vanish", help="Turns on vanishing for choosing param values and for showing man page blocks", action="store_true")
+    parser.add_argument(
+        '--info', help="Set level of displaying information", nargs='?', const="1111", type=str)
+    parser.add_argument(
+        "--infohelp", help="Shows various flags for using --info switch", action="store_true")
+
+    args = parser.parse_args()
+
+    # use showinfo to setup info switches
+    info_arg = args.info
+    if info_arg is None:
+        infoval = ''.join(["1"]*INFO_LEN)
+    else:
+        infoval = info_arg.ljust(INFO_LEN, '1')   
+    SHOW_LOADING, SHOW_AVAILABLE_COMMANDS, RUNSH_INSTRUCTION, MANSH_INSTRUCTION = [ii=='1' for ii in infoval[:INFO_LEN]]
+
+    if args.infohelp:
+        prints = ["This is a four-string paramter value that switches on or off messages at various stages of this shell prompt. The four parts are listed next.",            
+                  "info[0] = 0/1 : Turn off and on info to show loading start/done, success/fail info for various processes",
+                  "info[1] = 0/1 : Turn off and on info to show available commands",
+                  "info[2] = 0/1 : Turn off and on info to show instructions for run shell",
+                  "info[3] = 0/1 : Turn off and on info to show model and delimiter"]
+        prntc("\n".join(prints), dim=True)
+        return
+
+    if args.vanish:
+        VANISH = True
+
+    if args.add_model:
+        display_cached_models(models)
+        add_model(modelsdir, DEBUG=SHOW_LOADING)
+        return
+
+    if args.show_models:
+        display_cached_models(models)
+        return
+
+    if args.pretty_colors is None or args.pretty_colors == 'on':
+        PRETTY_COLORS = True
+
+    if args.include_numerals:
+        SKIP_NUMERALS = False
+
+    if args.vanish:
+        VANISH = True
+        
+    
+    # system info
+    sysinfo = getpass.getuser() + '@' + socket.gethostname()
+    home = str(Path.home())
+
+    # Instruction print statements
+    runshell_instructions = '⤺ [[command with switch(es)]:run command | ~[command] [query string(s)]: man semantic similarity search | ctrl+d:change parameters | ctrl+c:quit]'
+    perblock_instructions = '[e:expand context | r:reduce | Return:next block | Escape:quit to run shell | u:quit and use suggested command]'    
+
+    # Setup starting model string
+    if starting_model is None:
+        if len(models)==0 :
+            model = input_model_string()            
+        else:
+            model = models[0][0]
+    else:
+        model = starting_model
+        
+    data = setup_data_on_model(modelsdir, model, DEBUG=SHOW_LOADING)            
+    data_updated = False
+    prevpath = os.getcwd()
+    prefill_command = ""
+    while True:
+        if MANSH_INSTRUCTION:
+            prntc('☛ model:' + model + ' | ' + 'delimiter:' + repr(DELIMITER), dim=True)
+
+        if SHOW_AVAILABLE_COMMANDS:
+            prntc('⇾ available commands : '+str(sorted(get_available_commands_from_data(data, DELIMITER))), dim=True)
+
+        if RUNSH_INSTRUCTION:
+            prntc(runshell_instructions, dim=True)
+
+        pathinfo = re.sub('^'+home, '~', os.getcwd())
+        if PRETTY_COLORS:
+            print_runsh = f"{bcolors.OKGREEN}" + sysinfo + f"{bcolors.OKCYAN}" + ':' + f"{bcolors.OKBLUE}" + pathinfo + f"{bcolors.MAGENTA}" + f"{bcolors.CBLINK}" + ' ➡ ' + f"{bcolors.ENDC}"
+        else:
+            print_runsh = sysinfo + ':' + pathinfo + ' ➡ '
+
+        try:
+            runsh_input0 = rlinput(prompt=print_runsh, prefill=prefill_command)
+            prefill_command = ""
+                 
+            runsh_input = runsh_input0.strip()
+            if runsh_input == '':
+                continue
+            
+            curpath = os.getcwd()
+            path_changed, runsh_input = runcdcmd(runsh_input, prevpath)
+            if path_changed:
+                prevpath = curpath
+                continue
+            
+            if runsh_input[0] == '~': # go to mansh mode
+                man_shell_entry = runsh_input[1:]
+                splits = re.findall(r'\S+', man_shell_entry)            
+                if len(splits)<=1:
+                    continue
+                else:
+                    cmd = splits[0]
+                    query = ' '.join(splits[1:])
+                    
+                    if SKIP_NUMERALS:
+                        query = re.sub('[0-9]', '', query)
+
+                    corpus, idxs, update_status = query_on_corpus(data, cmd, query, delimiter=DELIMITER, REMOVE_STOPWORDS=False, DEBUG=SHOW_LOADING)
+                    if update_status==-1:
+                        continue
+                    if update_status==1:
+                        data_updated = True
+                    line_num = 0
+                    expandlen = 0
+                    skip_reprint = False
+                    while True:
+                        if not skip_reprint:
+                            prntc(perblock_instructions, dim=True, flag=MANSH_INSTRUCTION)
+                            prntc(' - - - - - - - - - - - - - - - - - - - - - - [' + str(line_num+1) + '/'+ str(len(corpus)) + '] - - - - - - - - - - - - - - - - - - - - - - -')
+                            lines = corpus[max(0,idxs[line_num]-expandlen):idxs[line_num]+expandlen+1]
+                            joined_lines = DELIMITER.join(lines)
+                            prntc(joined_lines)
+                            
+                            sug_cmd = getcmd(cmd, joined_lines)                          
+                            prntc('✅ Suggested command : ' + sug_cmd, dim=True)
+
+                        key = readchar.readchar() # use readchar.readkey() in fiture to accomdate for arrow keys detection, maybe for specific expand/reduce rules
+                        skip_reprint = False
+                        if key == '\x1b': # esc key pressed
+                            break
+                        elif key == 'u': # u key pressed
+                            prefill_command = sug_cmd                        
+                            break
+                        elif key == 'e': # e key pressed
+                            if VANISH:
+                                moveup(joined_lines.count('\n') + MOVEUP_OFFSET_PER_BLOCK + 1 + int(MANSH_INSTRUCTION))
+                            expandlen = expandlen+1
+                            prntc(print_runsh + runsh_input0)
+                            continue
+                        elif key == 'r': # r key pressed
+                            if VANISH:
+                                moveup(joined_lines.count('\n') + MOVEUP_OFFSET_PER_BLOCK + 1 + int(MANSH_INSTRUCTION))
+                            expandlen = max(0,expandlen-1)
+                            prntc(print_runsh + runsh_input0)
+                            continue
+                        elif key == '\r': # return key pressed
+                            expandlen = 0
+                            line_num += 1
+                            if line_num == len(idxs):
+                                break
+                            if VANISH:
+                                moveup(joined_lines.count('\n')+MOVEUP_OFFSET_PER_BLOCK+MANSH_INSTRUCTION)
+                        else:
+                            skip_reprint = True
+                            pass
+        
+    
+            else:
+                bash_run_cmd = subprocess.Popen(["bash", "-c", runsh_input])
+                try:
+                    bash_run_cmd.wait()
+                except KeyboardInterrupt:
+                    pass
+
+        except EOFError:
+            model, data_updated, data, DELIMITER = change_params(modelsdir, models, model, data_updated, data, delimiters, DELIMITER, VANISH=VANISH, DEBUG_SHOW_LOADING=SHOW_LOADING, DIMCOLOR=PRETTY_COLORS)
+            continue
+    
+        except KeyboardInterrupt:
+            writeback_changes(data_updated, data, modelsdir, model)
+            break
+
+if __name__ == "__main__":
+    main()
