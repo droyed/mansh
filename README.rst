@@ -81,18 +81,6 @@ Now, we are inside ``mansh`` shell. As mentioned earlier, ``mansh`` works as a t
 
 ``command`` is one among the available Linux commands. ``query string(s)`` are the query words based on which the semantic similarity search is performed across the man page for that Linux command.
 
-Let's take an example to get an easier handle into it's usage. Say, we want to use ``tree`` to list files and directories alongwith the size in bytes. So, we input some natural text to represent the query into the man-search mode :
-
-.. code-block:: console
-
-    $ ~tree show files alongside their sizes in bytes
-
-It would give us section(s) of man pages off the `command` related to the query string(s) and in the order of similarity and thus suggest some switches related to it. In this case, it will be ``-s`` and ``-h``. Then, we will try out those in the normal mode :
-
-.. code-block:: console
-
-    $ tree -sh
-
 Screencast
 ^^^^^^^^^^
 
