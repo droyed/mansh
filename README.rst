@@ -28,7 +28,7 @@ Installation
 
 System requirements are Linux operating system and Python ``3.6`` or newer. Install dependencies from provided ``src/requirements.txt`` with pip or conda or manually one by one. 
 
-Clone or unzip the downloaded zipped repository. Add ``.../src/`` to ``$PATH`` through your favourite shell config file (``.bashrc`` or ``.zshrc``, etc.) for permanently adding it. Make file named ``mansh`` executable with :
+Clone or unzip the downloaded zipped repository. Add ``.../src/`` to ``$PATH`` through your favourite shell config file (``.bashrc`` or ``.zshrc``, etc.) for permanently adding it. This directory will also store the model files as caches for faster switch-suggestions on future usages. So, do make sure that it is writable. Make file named ``mansh`` executable with :
 
 .. code-block:: console
 
