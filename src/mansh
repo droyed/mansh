@@ -169,7 +169,7 @@ def main():
                             prntc(joined_lines)
                             
                             sug_cmd = getcmd(cmd, joined_lines)                          
-                            prntc('✅ Suggested command : ' + sug_cmd, dim=True)
+                            prntc('✔ Suggested command : ' + sug_cmd, dim=True)
 
                         key = readchar.readchar() # use readchar.readkey() in fiture to accomdate for arrow keys detection, maybe for specific expand/reduce rules
                         skip_reprint = False
