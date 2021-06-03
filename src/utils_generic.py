@@ -84,6 +84,7 @@ def choose_param_value(list_of_options, currentval, DIMCOLOR=False, VANISH=False
         print('currentval : '+repr(currentval))        
         print('list_of_options : ')
         print(list_of_options)
+        print('Please add a model with "mansh --add_model", then restart.')
         raise Exception('Current item is not available in list of options.')
     
     match_current_idx = [ii for ii,option in enumerate(list_of_options) if currentval==option][0]
