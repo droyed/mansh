@@ -106,7 +106,9 @@ def main():
     else:
         model = starting_model
         
-    data = setup_data_on_model(modelsdir, model, DEBUG=SHOW_LOADING)            
+    data = setup_data_on_model(modelsdir, model, DEBUG=SHOW_LOADING)
+    models = get_models(modelsdir) # needed in case a new model was added with setup_data_on_model
+      
     data_updated = False
     prevpath = os.getcwd()
     prefill_command = ""
