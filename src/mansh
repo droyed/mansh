@@ -19,7 +19,7 @@ def main():
     # params (editable)
     DELIMITER = "\n\n"
     delimiters = ["\n\n", "\n"]
-    starting_model = 'paraphrase-MiniLM-L12-v2'
+    starting_model = None #'paraphrase-MiniLM-L12-v2'
     INFO_LEN = 4
     MOVEUP_OFFSET_PER_BLOCK = 3
 
