@@ -120,6 +120,6 @@ With ``tree`` to list tree stucture in different ways :
 .. |License| image:: https://img.shields.io/badge/license-MIT-green
    :target: https://raw.githubusercontent.com/droyed/mansh/master/LICENSE
 
-.. |gif_tree| image:: https://github.com/droyed/mansh1/blob/main/part1_tree.gif
-.. |gif_convert| image:: https://github.com/droyed/mansh1/blob/main/part2_convert.gif
-.. |gif_find| image:: https://github.com/droyed/mansh1/blob/main/part3_find_files.gif
+.. |gif_tree| image:: https://github.com/droyed/mansh/blob/main/media/tree.gif
+.. |gif_convert| image:: https://github.com/droyed/mansh/blob/main/media/convert.gif
+.. |gif_find| image:: https://github.com/droyed/mansh/blob/main/media/find.gif
